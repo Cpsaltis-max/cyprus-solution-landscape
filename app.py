@@ -1,29 +1,45 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
+import base64
 from pathlib import Path
 
-# ------------------------------------------------------------
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+
+# ============================================================
 # Page configuration
-# ------------------------------------------------------------
+# ============================================================
+
 st.set_page_config(
     page_title="Cyprus Solution Landscape Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+
+
+# ============================================================
+# File paths
+# ============================================================
 
 DATA_FILE = Path("cyprus_master_dataset_v3.xlsx")
 TRANSLATIONS_FILE = Path("translations.csv")
 
-# ------------------------------------------------------------
+# Optional logo files.
+# If these files are not present, the app will still run.
+GSP_LOGO = Path("gsp_logo.png")
+UCFS_LOGO = Path("ucfs_logo.png")
+
+
+# ============================================================
 # Responsive CSS
-# ------------------------------------------------------------
+# ============================================================
+
 st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 1.4rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
@@ -54,95 +70,229 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Load data
-# ------------------------------------------------------------
-@st.cache_data
-def load_data():
-    return pd.read_excel(DATA_FILE)
+# ============================================================
 
 @st.cache_data
-def load_translations():
+def load_data() -> pd.DataFrame:
+    if not DATA_FILE.exists():
+        st.error(f"Data file not found: {DATA_FILE}")
+        st.stop()
+
+    df = pd.read_excel(DATA_FILE)
+
+    required_columns = {
+        "year",
+        "community",
+        "theme",
+        "variable",
+        "question_text",
+        "response_category",
+        "percent",
+        "source_file",
+    }
+
+    missing = required_columns.difference(df.columns)
+    if missing:
+        st.error(f"Missing required columns in data file: {sorted(missing)}")
+        st.stop()
+
+    return df
+
+
+@st.cache_data
+def load_translations() -> pd.DataFrame:
+    if not TRANSLATIONS_FILE.exists():
+        st.error(f"Translation file not found: {TRANSLATIONS_FILE}")
+        st.stop()
+
     return pd.read_csv(TRANSLATIONS_FILE)
+
 
 df = load_data()
 translations = load_translations()
 
-# ------------------------------------------------------------
-# Language
-# ------------------------------------------------------------
+
+# ============================================================
+# Language / translation
+# ============================================================
+
 language = st.sidebar.selectbox(
     "Language / Γλώσσα / Dil",
-    ["English", "Greek", "Turkish"]
+    ["English", "Greek", "Turkish"],
 )
 
+
 def tr(key: str) -> str:
+    """Translate a key into the selected interface language."""
     row = translations.loc[translations["key"] == key]
     if row.empty:
         return key
+
     value = row.iloc[0].get(language, key)
     return key if pd.isna(value) else str(value)
 
-# ------------------------------------------------------------
-# Labels and colours
-# ------------------------------------------------------------
-community_label = {
-    "GC": tr("gc"),
-    "TC": tr("tc")
+
+# ============================================================
+# Logo helpers
+# ============================================================
+
+def image_to_data_uri(path: Path) -> str | None:
+    """Convert a local PNG/JPG logo into a data URI for Plotly downloads."""
+    if not path.exists():
+        return None
+
+    ext = path.suffix.lower().replace(".", "")
+    if ext == "jpg":
+        ext = "jpeg"
+
+    try:
+        encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+        return f"data:image/{ext};base64,{encoded}"
+    except Exception:
+        return None
+
+
+gsp_logo_uri = image_to_data_uri(GSP_LOGO)
+ucfs_logo_uri = image_to_data_uri(UCFS_LOGO)
+
+
+def show_logo_header() -> None:
+    """Show institutional logos in the app interface when files exist."""
+    available = []
+    if GSP_LOGO.exists():
+        available.append(("gsp", GSP_LOGO))
+    if UCFS_LOGO.exists():
+        available.append(("ucfs", UCFS_LOGO))
+
+    if not available:
+        return
+
+    cols = st.columns(len(available))
+    for col, (_, logo_path) in zip(cols, available):
+        with col:
+            st.image(str(logo_path), width=180)
+
+
+def add_logos_to_figure(fig):
+    """Add logos to Plotly figures so downloaded graphs include them."""
+    if gsp_logo_uri:
+        fig.add_layout_image(
+            dict(
+                source=gsp_logo_uri,
+                xref="paper",
+                yref="paper",
+                x=0,
+                y=1.18,
+                sizex=0.18,
+                sizey=0.18,
+                xanchor="left",
+                yanchor="top",
+                layer="above",
+            )
+        )
+
+    if ucfs_logo_uri:
+        fig.add_layout_image(
+            dict(
+                source=ucfs_logo_uri,
+                xref="paper",
+                yref="paper",
+                x=1,
+                y=1.18,
+                sizex=0.18,
+                sizey=0.18,
+                xanchor="right",
+                yanchor="top",
+                layer="above",
+            )
+        )
+
+    top_margin = 120 if (gsp_logo_uri or ucfs_logo_uri) else 40
+    fig.update_layout(margin=dict(l=20, r=20, t=top_margin, b=30))
+    return fig
+
+
+PLOTLY_CONFIG = {
+    "displaylogo": False,
+    "toImageButtonOptions": {
+        "format": "png",
+        "filename": "cyprus_solution_landscape",
+        "height": 700,
+        "width": 1100,
+        "scale": 3,
+    },
 }
 
+
+# ============================================================
+# Stable labels and colour mappings
+# ============================================================
+
+community_label = {
+    "GC": tr("gc"),
+    "TC": tr("tc"),
+}
 community_reverse = {v: k for k, v in community_label.items()}
 
 solution_order = [
     "bbf_support",
     "unitary_state_support",
     "two_states_support",
-    "status_quo_support"
+    "status_quo_support",
 ]
 
-solution_label = {k: tr(k) for k in solution_order}
+solution_label = {key: tr(key) for key in solution_order}
 solution_reverse = {v: k for k, v in solution_label.items()}
 
 response_label = {
     "against": tr("against"),
     "tolerate": tr("tolerate"),
-    "in_favor": tr("in_favor")
+    "in_favor": tr("in_favor"),
 }
 
 binary_label = {
     "accepted": tr("accepted"),
-    "rejected": tr("rejected")
+    "rejected": tr("rejected"),
 }
 
-# Requested colour scheme:
-# In distribution view: In favour = light green, Tolerate = dark green, Reject/Against = red.
+# Required colour scheme:
+# In favor / Accepted = light green
+# Tolerate = dark green
+# Against / Rejected = red
 response_colors = {
     tr("in_favor"): "lightgreen",
     tr("tolerate"): "darkgreen",
-    tr("against"): "red"
+    tr("against"): "red",
 }
 
-# In binary view: Accepted = light green, Rejected = red.
 binary_colors = {
     tr("accepted"): "lightgreen",
-    tr("rejected"): "red"
+    tr("rejected"): "red",
 }
 
-# Cross-solution colours:
-# BBF = green, Unitary = orange, Two States = red, Status Quo = pink.
+# Required solution colours:
+# BBF = green
+# Unitary State = orange
+# Two States = red
+# Keeping Status Quo = pink
 solution_colors = {
     tr("bbf_support"): "green",
     tr("unitary_state_support"): "orange",
     tr("two_states_support"): "red",
-    tr("status_quo_support"): "pink"
+    tr("status_quo_support"): "pink",
 }
 
-# ------------------------------------------------------------
-# Derived accepted/rejected data
-# ------------------------------------------------------------
+
+# ============================================================
+# Derived accepted / rejected data
+# ============================================================
+
 accepted = (
     df[df["response_category"].isin(["in_favor", "tolerate"])]
     .groupby(["year", "community", "variable"], as_index=False)["percent"]
@@ -160,12 +310,16 @@ df_binary = pd.merge(
     accepted,
     rejected,
     on=["year", "community", "variable"],
-    how="inner"
+    how="inner",
 )
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Header
-# ------------------------------------------------------------
+# ============================================================
+
+show_logo_header()
+
 st.title(tr("app_title"))
 st.caption(tr("app_subtitle"))
 
@@ -178,36 +332,38 @@ st.markdown(
     """
 )
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Sidebar controls
-# ------------------------------------------------------------
+# ============================================================
+
 st.sidebar.header(tr("controls"))
 
 display_mode = st.sidebar.radio(
     tr("display"),
     [tr("desktop"), tr("mobile")],
     index=0,
-    help=tr("display_help")
+    help=tr("display_help"),
 )
 
 community_options = [tr("both"), tr("gc"), tr("tc")]
 selected_community_label = st.sidebar.selectbox(
     tr("community"),
     community_options,
-    index=0
+    index=0,
 )
 
-solution_options = [solution_label[k] for k in solution_order]
+solution_options = [solution_label[key] for key in solution_order]
 selected_solution_label = st.sidebar.selectbox(
     tr("solution"),
     solution_options,
-    index=0
+    index=0,
 )
 
 view_mode = st.sidebar.radio(
     tr("view_mode"),
     [tr("accepted_rejected"), tr("full_distribution")],
-    index=0
+    index=0,
 )
 
 selected_variable = solution_reverse[selected_solution_label]
@@ -219,30 +375,35 @@ else:
 
 mobile_mode = display_mode == tr("mobile")
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Helper functions
-# ------------------------------------------------------------
-def prepare_distribution_data(data):
+# ============================================================
+
+def chart_height() -> int:
+    return 430 if mobile_mode else 520
+
+
+def prepare_distribution_data(data: pd.DataFrame) -> pd.DataFrame:
     out = data.copy()
     out["community_label"] = out["community"].map(community_label)
     out["response_category_label"] = out["response_category"].map(response_label)
     out["solution_label"] = out["variable"].map(solution_label)
     return out
 
-def prepare_binary_data(data):
+
+def prepare_binary_data(data: pd.DataFrame) -> pd.DataFrame:
     out = data.copy()
     out["community_label"] = out["community"].map(community_label)
     out["solution_label"] = out["variable"].map(solution_label)
     return out
 
-def chart_height():
-    return 430 if mobile_mode else 520
 
-def show_distribution_chart(data):
-    data = prepare_distribution_data(data)
+def render_distribution_line_chart(data: pd.DataFrame) -> None:
+    plot_data = prepare_distribution_data(data)
 
     fig = px.line(
-        data,
+        plot_data,
         x="year",
         y="percent",
         color="response_category_label",
@@ -251,27 +412,29 @@ def show_distribution_chart(data):
         labels={
             "year": tr("year"),
             "percent": tr("percent"),
-            "response_category_label": tr("category")
+            "response_category_label": tr("category"),
         },
-        title=None
+        title=None,
     )
 
     fig.update_yaxes(range=[0, 100])
     fig.update_layout(
         height=chart_height(),
         legend_title_text=tr("category"),
-        margin=dict(l=20, r=20, t=30, b=20)
     )
+    fig = add_logos_to_figure(fig)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
-def show_binary_chart(data):
-    data = prepare_binary_data(data)
-    melted = data.melt(
+
+def render_binary_line_chart(data: pd.DataFrame) -> None:
+    plot_data = prepare_binary_data(data)
+
+    melted = plot_data.melt(
         id_vars=["year", "community", "community_label", "variable", "solution_label"],
         value_vars=["accepted", "rejected"],
         var_name="category",
-        value_name="percent"
+        value_name="percent",
     )
     melted["category_label"] = melted["category"].map(binary_label)
 
@@ -285,23 +448,25 @@ def show_binary_chart(data):
         labels={
             "year": tr("year"),
             "percent": tr("percent"),
-            "category_label": tr("category")
+            "category_label": tr("category"),
         },
-        title=None
+        title=None,
     )
 
     fig.update_yaxes(range=[0, 100])
     fig.update_layout(
         height=chart_height(),
         legend_title_text=tr("category"),
-        margin=dict(l=20, r=20, t=30, b=20)
     )
+    fig = add_logos_to_figure(fig)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Filter selected solution
-# ------------------------------------------------------------
+# ============================================================
+
 df_filt = df[df["variable"] == selected_variable].copy()
 df_bin_filt = df_binary[df_binary["variable"] == selected_variable].copy()
 
@@ -309,9 +474,11 @@ if selected_community != "Both":
     df_filt = df_filt[df_filt["community"] == selected_community]
     df_bin_filt = df_bin_filt[df_bin_filt["community"] == selected_community]
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Main visual
-# ------------------------------------------------------------
+# ============================================================
+
 st.subheader(selected_solution_label)
 
 if view_mode == tr("accepted_rejected"):
@@ -320,17 +487,18 @@ if view_mode == tr("accepted_rejected"):
 if selected_community == "Both":
     if mobile_mode:
         tab_gc, tab_tc = st.tabs([tr("gc"), tr("tc")])
+
         with tab_gc:
             if view_mode == tr("full_distribution"):
-                show_distribution_chart(df_filt[df_filt["community"] == "GC"])
+                render_distribution_line_chart(df_filt[df_filt["community"] == "GC"])
             else:
-                show_binary_chart(df_bin_filt[df_bin_filt["community"] == "GC"])
+                render_binary_line_chart(df_bin_filt[df_bin_filt["community"] == "GC"])
 
         with tab_tc:
             if view_mode == tr("full_distribution"):
-                show_distribution_chart(df_filt[df_filt["community"] == "TC"])
+                render_distribution_line_chart(df_filt[df_filt["community"] == "TC"])
             else:
-                show_binary_chart(df_bin_filt[df_bin_filt["community"] == "TC"])
+                render_binary_line_chart(df_bin_filt[df_bin_filt["community"] == "TC"])
 
     else:
         if view_mode == tr("full_distribution"):
@@ -348,27 +516,28 @@ if selected_community == "Both":
                     "year": tr("year"),
                     "percent": tr("percent"),
                     "response_category_label": tr("category"),
-                    "community_label": tr("community")
+                    "community_label": tr("community"),
                 },
-                title=None
+                title=None,
             )
 
             fig.update_yaxes(range=[0, 100])
             fig.update_layout(
                 height=520,
                 legend_title_text=tr("category"),
-                margin=dict(l=20, r=20, t=30, b=20)
             )
+            fig = add_logos_to_figure(fig)
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
         else:
             plot_data = prepare_binary_data(df_bin_filt)
+
             melted = plot_data.melt(
                 id_vars=["year", "community", "community_label", "variable", "solution_label"],
                 value_vars=["accepted", "rejected"],
                 var_name="category",
-                value_name="percent"
+                value_name="percent",
             )
             melted["category_label"] = melted["category"].map(binary_label)
 
@@ -377,35 +546,38 @@ if selected_community == "Both":
                 x="year",
                 y="percent",
                 color="category_label",
-                markers=True,
                 facet_col="community_label",
+                markers=True,
                 color_discrete_map=binary_colors,
                 labels={
                     "year": tr("year"),
                     "percent": tr("percent"),
                     "category_label": tr("category"),
-                    "community_label": tr("community")
+                    "community_label": tr("community"),
                 },
-                title=None
+                title=None,
             )
 
             fig.update_yaxes(range=[0, 100])
             fig.update_layout(
                 height=520,
                 legend_title_text=tr("category"),
-                margin=dict(l=20, r=20, t=30, b=20)
             )
+            fig = add_logos_to_figure(fig)
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+
 else:
     if view_mode == tr("full_distribution"):
-        show_distribution_chart(df_filt)
+        render_distribution_line_chart(df_filt)
     else:
-        show_binary_chart(df_bin_filt)
+        render_binary_line_chart(df_bin_filt)
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Cross-solution comparison
-# ------------------------------------------------------------
+# ============================================================
+
 st.divider()
 st.subheader(tr("compare_solutions"))
 
@@ -418,9 +590,10 @@ df_compare = prepare_binary_data(df_compare)
 
 if selected_community == "Both" and mobile_mode:
     tab_gc2, tab_tc2 = st.tabs([tr("gc"), tr("tc")])
-    for tab, comm in [(tab_gc2, "GC"), (tab_tc2, "TC")]:
+
+    for tab, community_code in [(tab_gc2, "GC"), (tab_tc2, "TC")]:
         with tab:
-            sub = df_compare[df_compare["community"] == comm]
+            sub = df_compare[df_compare["community"] == community_code]
 
             fig2 = px.line(
                 sub,
@@ -432,19 +605,20 @@ if selected_community == "Both" and mobile_mode:
                 labels={
                     "year": tr("year"),
                     "accepted": tr("accepted"),
-                    "solution_label": tr("solution")
+                    "solution_label": tr("solution"),
                 },
-                title=None
+                title=None,
             )
 
             fig2.update_yaxes(range=[0, 100])
             fig2.update_layout(
                 height=430,
                 legend_title_text=tr("solution"),
-                margin=dict(l=20, r=20, t=30, b=20)
             )
+            fig2 = add_logos_to_figure(fig2)
 
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, use_container_width=True, config=PLOTLY_CONFIG)
+
 else:
     fig2 = px.line(
         df_compare,
@@ -458,30 +632,37 @@ else:
             "year": tr("year"),
             "accepted": tr("accepted"),
             "solution_label": tr("solution"),
-            "community_label": tr("community")
+            "community_label": tr("community"),
         },
-        title=None
+        title=None,
     )
 
     fig2.update_yaxes(range=[0, 100])
     fig2.update_layout(
         height=chart_height(),
         legend_title_text=tr("solution"),
-        margin=dict(l=20, r=20, t=30, b=20)
     )
+    fig2 = add_logos_to_figure(fig2)
 
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, config=PLOTLY_CONFIG)
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Joint acceptance
-# ------------------------------------------------------------
+# ============================================================
+
 st.divider()
 st.subheader(tr("maximum_possible_agreement"))
 st.caption(tr("joint_acceptance_note"))
 
 joint = (
     df_binary
-    .pivot_table(index=["year", "variable"], columns="community", values="accepted", aggfunc="first")
+    .pivot_table(
+        index=["year", "variable"],
+        columns="community",
+        values="accepted",
+        aggfunc="first",
+    )
     .reset_index()
 )
 
@@ -499,23 +680,25 @@ if {"GC", "TC"}.issubset(joint.columns):
         labels={
             "year": tr("year"),
             "joint_acceptance": tr("joint_acceptance"),
-            "solution_label": tr("solution")
+            "solution_label": tr("solution"),
         },
-        title=None
+        title=None,
     )
 
     fig3.update_yaxes(range=[0, 100])
     fig3.update_layout(
         height=chart_height(),
         legend_title_text=tr("solution"),
-        margin=dict(l=20, r=20, t=30, b=20)
     )
+    fig3 = add_logos_to_figure(fig3)
 
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, use_container_width=True, config=PLOTLY_CONFIG)
 
-# ------------------------------------------------------------
-# Data table and download
-# ------------------------------------------------------------
+
+# ============================================================
+# Data table and downloads
+# ============================================================
+
 st.divider()
 
 with st.expander(tr("data_table")):
@@ -530,10 +713,12 @@ with st.expander(tr("data_table")):
         label=tr("download_filtered"),
         data=table.to_csv(index=False).encode("utf-8-sig"),
         file_name="cyprus_solution_landscape_data.csv",
-        mime="text/csv"
+        mime="text/csv",
     )
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Footer
-# ------------------------------------------------------------
+# ============================================================
+
 st.caption(tr("footer"))
