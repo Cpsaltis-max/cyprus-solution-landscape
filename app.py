@@ -39,7 +39,7 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.0rem;
+        padding-top: 2.5rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
@@ -48,7 +48,7 @@ st.markdown(
         .block-container {
             padding-left: 0.7rem;
             padding-right: 0.7rem;
-            padding-top: 0.7rem;
+            padding-top: 1.8rem;
         }
 
         h1 {
@@ -172,23 +172,27 @@ ucfs_logo_uri = image_to_data_uri(UCFS_LOGO)
 
 def show_logo_header() -> None:
     """
-    Compact, non-cropping institutional logo header.
-
-    Uses fixed modest widths and balanced columns to avoid cropping on desktop
-    and excessive blank space above the title.
+    Compact institutional logo header with safe top spacing.
+    Prevents logos being clipped at the top of the Streamlit page.
     """
     if not GSP_LOGO.exists() and not UCFS_LOGO.exists():
         return
 
-    left, center, right = st.columns([1.3, 2.4, 1.3])
+    # Safe top spacer to avoid clipping under Streamlit's top toolbar.
+    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+
+    left, middle, right = st.columns([1.2, 3, 1.2])
 
     with left:
         if GSP_LOGO.exists():
-            st.image(str(GSP_LOGO), width=150)
+            st.image(str(GSP_LOGO), width=130)
 
     with right:
         if UCFS_LOGO.exists():
-            st.image(str(UCFS_LOGO), width=150)
+            st.image(str(UCFS_LOGO), width=130)
+
+    # Space between logos and title.
+    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
 
 
 def add_logos_to_figure(fig):
