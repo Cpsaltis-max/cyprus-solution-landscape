@@ -1,0 +1,31 @@
+key,English,Greek,Turkish
+app_title,Cyprus Solution Landscape Dashboard,Πίνακας Λύσεων για το Κυπριακό,Kıbrıs Çözüm Manzarası Paneli
+app_subtitle,Longitudinal bicommunal findings on preferred political solutions,Διαχρονικά δικοινοτικά ευρήματα για προτιμώμενες πολιτικές λύσεις,Tercih edilen siyasi çözümlere ilişkin uzunlamasına iki toplumlu bulgular
+language,Language,Γλώσσα,Dil
+community,Community,Κοινότητα,Toplum
+solution,Solution,Λύση,Çözüm
+view_mode,View mode,Τύπος προβολής,Görünüm türü
+both,Both,Και οι δύο,Her ikisi
+gc,Greek Cypriots,Ελληνοκύπριοι,Kıbrıslı Rumlar
+tc,Turkish Cypriots,Τουρκοκύπριοι,Kıbrıslı Türkler
+full_distribution,Full distribution,Πλήρης κατανομή,Tam dağılım
+accepted_rejected,Accepted vs Rejected,Αποδοχή έναντι Απόρριψης,Kabul edilebilir ve Reddedilen
+accepted,Accepted,Αποδεκτό,Kabul edilebilir
+rejected,Rejected,Απορρίπτεται,Reddediliyor
+against,Against,Εναντίον,Karşı
+tolerate,Could tolerate if necessary,Θα το ανεχόμουν αν ήταν αναγκαίο,Gerekirse tolere edilebilir
+in_favor,In favor,Υπέρ,Lehte
+bbf_support,Bizonal Bicommunal Federation,Διζωνική Δικοινοτική Ομοσπονδία,İki Bölgeli İki Toplumlu Federasyon
+unitary_state_support,Unitary State,Ενιαίο Κράτος,Üniter Devlet
+two_states_support,Two States,Δύο Κράτη,İki Devlet
+status_quo_support,Keeping the Status Quo,Διατήρηση του Στάτους Κβο,Statükonun Korunması
+distribution_title,Distribution over time,Κατανομή στον χρόνο,Zaman içinde dağılım
+accepted_rejected_title,Accepted vs Rejected over time,Αποδοχή έναντι Απόρριψης στον χρόνο,Zaman içinde Kabul edilebilir ve Reddedilen
+compare_solutions,Compare solutions by acceptance,Σύγκριση λύσεων με βάση την αποδοχή,Çözümleri kabul edilebilirlik düzeyine göre karşılaştır
+joint_acceptance,Joint acceptance index,Δείκτης κοινής αποδοχής,Ortak kabul endeksi
+joint_acceptance_note,Joint acceptance is the lower accepted percentage between Greek Cypriots and Turkish Cypriots for the same solution and year.,Η κοινή αποδοχή είναι το χαμηλότερο ποσοστό αποδοχής μεταξύ Ελληνοκυπρίων και Τουρκοκυπρίων για την ίδια λύση και χρονιά.,Ortak kabul aynı çözüm ve yıl için Kıbrıslı Rumlar ile Kıbrıslı Türkler arasındaki daha düşük kabul yüzdesidir.
+data_table,Data table,Πίνακας δεδομένων,Veri tablosu
+download_filtered,Download filtered data,Λήψη φιλτραρισμένων δεδομένων,Filtrelenmiş veriyi indir
+percent,Percent,Ποσοστό,Yüzde
+year,Year,Έτος,Yıl
+category,Category,Κατηγορία,Kategori
