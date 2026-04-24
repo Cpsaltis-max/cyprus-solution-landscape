@@ -26,7 +26,7 @@ DATA_FILE = Path("cyprus_master_dataset_v3.xlsx")
 TRANSLATIONS_FILE = Path("translations.csv")
 
 # Optional logo files.
-# If these files are not present, the app will still run.
+# The app still runs if one or both are missing.
 GSP_LOGO = Path("gsp_logo.png")
 UCFS_LOGO = Path("ucfs_logo.png")
 
@@ -39,7 +39,7 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.4rem;
+        padding-top: 1.0rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
@@ -48,7 +48,7 @@ st.markdown(
         .block-container {
             padding-left: 0.7rem;
             padding-right: 0.7rem;
-            padding-top: 0.8rem;
+            padding-top: 0.7rem;
         }
 
         h1 {
@@ -105,8 +105,12 @@ def load_data() -> pd.DataFrame:
     return df
 
 
-@st.cache_data
 def load_translations() -> pd.DataFrame:
+    """
+    Do not cache translations.
+
+    This avoids Streamlit keeping an old translations.csv after GitHub updates.
+    """
     if not TRANSLATIONS_FILE.exists():
         st.error(f"Translation file not found: {TRANSLATIONS_FILE}")
         st.stop()
@@ -143,17 +147,21 @@ def tr(key: str) -> str:
 # ============================================================
 
 def image_to_data_uri(path: Path) -> str | None:
-    """Convert a local PNG/JPG logo into a data URI for Plotly downloads."""
+    """Convert a local PNG/JPG/SVG logo into a data URI for Plotly downloads."""
     if not path.exists():
         return None
 
     ext = path.suffix.lower().replace(".", "")
     if ext == "jpg":
         ext = "jpeg"
+    if ext == "svg":
+        mime = "svg+xml"
+    else:
+        mime = ext
 
     try:
         encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
-        return f"data:image/{ext};base64,{encoded}"
+        return f"data:image/{mime};base64,{encoded}"
     except Exception:
         return None
 
@@ -163,24 +171,32 @@ ucfs_logo_uri = image_to_data_uri(UCFS_LOGO)
 
 
 def show_logo_header() -> None:
-    """Show institutional logos in the app interface when files exist."""
-    available = []
-    if GSP_LOGO.exists():
-        available.append(("gsp", GSP_LOGO))
-    if UCFS_LOGO.exists():
-        available.append(("ucfs", UCFS_LOGO))
+    """
+    Compact, non-cropping institutional logo header.
 
-    if not available:
+    Uses fixed modest widths and balanced columns to avoid cropping on desktop
+    and excessive blank space above the title.
+    """
+    if not GSP_LOGO.exists() and not UCFS_LOGO.exists():
         return
 
-    cols = st.columns(len(available))
-    for col, (_, logo_path) in zip(cols, available):
-        with col:
-            st.image(str(logo_path), width=180)
+    left, center, right = st.columns([1.3, 2.4, 1.3])
+
+    with left:
+        if GSP_LOGO.exists():
+            st.image(str(GSP_LOGO), width=150)
+
+    with right:
+        if UCFS_LOGO.exists():
+            st.image(str(UCFS_LOGO), width=150)
 
 
 def add_logos_to_figure(fig):
-    """Add logos to Plotly figures so downloaded graphs include them."""
+    """
+    Add compact logos to Plotly figures so downloaded PNGs include branding.
+
+    Logos are intentionally small to avoid crowding chart titles or data.
+    """
     if gsp_logo_uri:
         fig.add_layout_image(
             dict(
@@ -188,9 +204,9 @@ def add_logos_to_figure(fig):
                 xref="paper",
                 yref="paper",
                 x=0,
-                y=1.18,
-                sizex=0.18,
-                sizey=0.18,
+                y=1.10,
+                sizex=0.12,
+                sizey=0.12,
                 xanchor="left",
                 yanchor="top",
                 layer="above",
@@ -204,16 +220,16 @@ def add_logos_to_figure(fig):
                 xref="paper",
                 yref="paper",
                 x=1,
-                y=1.18,
-                sizex=0.18,
-                sizey=0.18,
+                y=1.10,
+                sizex=0.12,
+                sizey=0.12,
                 xanchor="right",
                 yanchor="top",
                 layer="above",
             )
         )
 
-    top_margin = 120 if (gsp_logo_uri or ucfs_logo_uri) else 40
+    top_margin = 80 if (gsp_logo_uri or ucfs_logo_uri) else 40
     fig.update_layout(margin=dict(l=20, r=20, t=top_margin, b=30))
     return fig
 
